@@ -100,6 +100,16 @@ const pool = new Pool({
   password: "one_password", // New user's password
   port: process.env.PORTNO || 5432, // Ensure the port is correct
 });
+/**
+Remote db
+ */
+// const pool = new Pool({
+//   user: "postgres.uvdgwdoooebrlnpkqmtx",
+//   host: "aws-0-eu-central-1.pooler.supabase.com", // Using localhost as specified
+//   database: "postgres", // New database
+//   password: "128Crestway482", // New user's password
+//   port: 6543, // Ensure the port is correct
+// });
 
 function handleDatabaseError(error, res) {
   // Duplicate username
@@ -608,8 +618,12 @@ app.post("/api/register", async (req, res) => {
     res.json({ id: newUserId, username: username });
   } catch (error) {
     await client.query("ROLLBACK"); // Roll back the transaction on error
-    console.error(error);
-    res.status(500).send("An error occurred during registration.");
+    if (error.code === "23505") {
+      // Unique constraint violation
+      res.status(409).send("Email already exists");
+    } else {
+      res.status(500).send("An error occurred during registration.");
+    }
   } finally {
     client.release(); // Release the client back to the pool
   }
@@ -1144,10 +1158,12 @@ async function deleteFile(filePath) {
     await fsx.unlink(filePath);
     console.log(`Successfully deleted file: ${filePath}`);
   } catch (error) {
-    if (error.code === 'ENOENT') {
+    if (error.code === "ENOENT") {
       console.error(`File not found, removing from schedule: ${filePath}`);
     } else {
-      console.error(`Error deleting file: ${filePath}. Error: ${error.message}`);
+      console.error(
+        `Error deleting file: ${filePath}. Error: ${error.message}`
+      );
       throw error;
     }
   }
@@ -1155,25 +1171,32 @@ async function deleteFile(filePath) {
 
 async function scheduleFileForDeletion(client, filePath) {
   try {
-    await client.query("INSERT INTO scheduled_deletions (file_path) VALUES ($1)", [filePath]);
+    await client.query(
+      "INSERT INTO scheduled_deletions (file_path) VALUES ($1)",
+      [filePath]
+    );
     console.log(`Scheduled file for deletion: ${filePath}`);
   } catch (error) {
-    console.error(`Error scheduling file for deletion: ${filePath}. Error: ${error.message}`);
+    console.error(
+      `Error scheduling file for deletion: ${filePath}. Error: ${error.message}`
+    );
   }
 }
 
 async function restoreOriginalProfilePicture(client, userId, originalFilePath) {
   try {
     await client.query("BEGIN");
-    await client.query(
-      "UPDATE users SET profile_picture = $1 WHERE id = $2",
-      [originalFilePath, userId]
-    );
+    await client.query("UPDATE users SET profile_picture = $1 WHERE id = $2", [
+      originalFilePath,
+      userId,
+    ]);
     await client.query("COMMIT");
     console.log("Successfully restored original profile picture");
   } catch (restoreError) {
     await client.query("ROLLBACK");
-    console.error(`Error restoring original profile picture: ${restoreError.message}`);
+    console.error(
+      `Error restoring original profile picture: ${restoreError.message}`
+    );
   }
 }
 
@@ -1181,8 +1204,9 @@ async function generateThumbnail(filePath, thumbnailPath) {
   return new Promise((resolve, reject) => {
     sharp(filePath)
       .metadata()
-      .then(metadata => {
-        const longerDimension = metadata.width > metadata.height ? "width" : "height";
+      .then((metadata) => {
+        const longerDimension =
+          metadata.width > metadata.height ? "width" : "height";
         const resizeOptions = { [longerDimension]: 100 };
 
         sharp(filePath)
@@ -1191,18 +1215,18 @@ async function generateThumbnail(filePath, thumbnailPath) {
           .then(() => {
             resolve();
           })
-          .catch(error => {
+          .catch((error) => {
             reject(error);
           });
       })
-      .catch(error => {
+      .catch((error) => {
         reject(error);
       });
   });
 }
 
 async function delay(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 app.post(
@@ -1257,7 +1281,9 @@ app.post(
           await deleteFile(originalFilePath);
           await deleteFile(originalThumbnailPath);
         } catch (err) {
-          console.error(`Error deleting old profile picture and thumbnail: ${err.message}`);
+          console.error(
+            `Error deleting old profile picture and thumbnail: ${err.message}`
+          );
           // Schedule the files for deletion
           await scheduleFileForDeletion(client, originalFilePath);
           await scheduleFileForDeletion(client, originalThumbnailPath);
@@ -1290,7 +1316,11 @@ app.post(
 
       // Restore original profile picture if an error occurs
       if (originalFilePath) {
-        await restoreOriginalProfilePicture(client, req.params.userId, originalFilePath);
+        await restoreOriginalProfilePicture(
+          client,
+          req.params.userId,
+          originalFilePath
+        );
       }
 
       handleDatabaseError(error, res);
@@ -1298,28 +1328,36 @@ app.post(
       client.release();
     }
   }
-)
+);
 //Cleanup files
 async function cleanupScheduledDeletions() {
   const client = await pool.connect();
 
   try {
-    const { rows: filesToDelete } = await client.query("SELECT id, file_path FROM scheduled_deletions");
+    const { rows: filesToDelete } = await client.query(
+      "SELECT id, file_path FROM scheduled_deletions"
+    );
 
     for (const file of filesToDelete) {
       const { id, file_path } = file;
 
       try {
         await deleteFile(file_path);
-        await client.query("DELETE FROM scheduled_deletions WHERE id = $1", [id]);
+        await client.query("DELETE FROM scheduled_deletions WHERE id = $1", [
+          id,
+        ]);
         console.log(`Successfully deleted scheduled file: ${file_path}`);
       } catch (error) {
-        if (error.code === 'ENOENT') {
+        if (error.code === "ENOENT") {
           // Remove the record from the table if the file does not exist
-          await client.query("DELETE FROM scheduled_deletions WHERE id = $1", [id]);
+          await client.query("DELETE FROM scheduled_deletions WHERE id = $1", [
+            id,
+          ]);
           console.log(`Removed non-existent file from schedule: ${file_path}`);
         } else {
-          console.error(`Error deleting scheduled file: ${file_path}. Error: ${error.message}`);
+          console.error(
+            `Error deleting scheduled file: ${file_path}. Error: ${error.message}`
+          );
         }
         // Continue with next file
       }
