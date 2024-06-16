@@ -63,13 +63,18 @@ const RESET_EMAIL = process.env.RESET_EMAIL;
 const JWT_SECRET = process.env.LG_TOKEN;
 
 app.use(
+  // cors({
+  //   origin: `http://${process.env.HOST}:${process.env.PORTFORAPP}`, // Allow your frontend origin
+  // })
   cors({
-    origin: `http://${process.env.HOST}:${process.env.PORTFORAPP}`, // Allow your frontend origin
+    origin: "https://connectedbackend-1gyi2d4gp-charles-projects-633a3526.vercel.app/"
   })
 );
+//origin: `http://${process.env.HOST}:${process.env.PORTFORAPP}`, // Allow your frontend origin
+//origin: `http://${process.env.HOST}:${process.env.PORTFORAPP}`,
 const io = socketIo(server, {
   cors: {
-    origin: `http://${process.env.HOST}:${process.env.PORTFORAPP}`, // Allow your frontend origin
+    origin: "https://connectedbackend-1gyi2d4gp-charles-projects-633a3526.vercel.app/", // Allow your frontend origin
     methods: ["GET", "POST"], // Specify which HTTP methods are allowed
     allowedHeaders: ["my-custom-header"], // Optional: specify headers
     credentials: true, // Optional: if you need credentials
@@ -2104,7 +2109,10 @@ app.post("/api/password_reset_request", async (req, res) => {
     ]);
 
     // Create reset URL
-    const resetUrl = `http://${process.env.HOST}:${process.env.PORTFORAPP}/password-reset?token=${resetToken}`;
+    //"https://connectedbackend-1gyi2d4gp-charles-projects-633a3526.vercel.app/"
+    //    const resetUrl = `http://${process.env.HOST}:${process.env.PORTFORAPP}/password-reset?token=${resetToken}`;
+
+    const resetUrl = `https://connectedbackend-1gyi2d4gp-charles-projects-633a3526.vercel.app/password-reset?token=${resetToken}`;
 
     // Send email
     const mailOptions = {
