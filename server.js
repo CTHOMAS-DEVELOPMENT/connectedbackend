@@ -62,24 +62,55 @@ loadEnvVariables();
 const RESET_EMAIL = process.env.RESET_EMAIL;
 const JWT_SECRET = process.env.LG_TOKEN;
 
+const allowedOrigins = [
+  `http://${process.env.HOST}:${process.env.PORTFORAPP}`,
+  `http://${process.env.HOST}:${process.env.PROXYPORT}`,
+  'https://your-remote-domain.com'
+];
+
 app.use(
-  // cors({
-  //   origin: `http://${process.env.HOST}:${process.env.PORTFORAPP}`, // Allow your frontend origin
-  // })
   cors({
-    origin: "https://connectedbackend-1gyi2d4gp-charles-projects-633a3526.vercel.app/"
+    origin: (origin, callback) => {
+      // Log the origin for debugging
+      console.log(`Request origin: ${origin}`);
+      
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) {
+        console.log(`No origin provided, allowing request.`);
+        return callback(null, true);
+      }
+
+      // Remove trailing slash from origin for comparison
+      const cleanedOrigin = origin.replace(/\/$/, '');
+      
+      if (allowedOrigins.indexOf(cleanedOrigin) !== -1) {
+        console.log(`Origin: ${cleanedOrigin} allowed by CORS`);
+        callback(null, true);
+      } else {
+        console.log(`Origin: ${cleanedOrigin} not allowed by CORS`);
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
   })
 );
-//origin: `http://${process.env.HOST}:${process.env.PORTFORAPP}`, // Allow your frontend origin
-//origin: `http://${process.env.HOST}:${process.env.PORTFORAPP}`,
+
+
+
 const io = socketIo(server, {
   cors: {
-    origin: "https://connectedbackend-1gyi2d4gp-charles-projects-633a3526.vercel.app/", // Allow your frontend origin
-    methods: ["GET", "POST"], // Specify which HTTP methods are allowed
-    allowedHeaders: ["my-custom-header"], // Optional: specify headers
-    credentials: true, // Optional: if you need credentials
+    origin: (origin, callback) => {
+      if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    methods: ["GET", "POST"],
+    allowedHeaders: ["my-custom-header"],
+    credentials: true,
   },
 });
+
 
 const transporter = nodemailer.createTransport({
   service: "gmail", // Example using Gmail
@@ -98,23 +129,23 @@ app.use(
   express.static(path.join(__dirname, "imageUploaded"))
 );
 // PostgreSQL connection configuration
-// const pool = new Pool({
-//   user: "interactone",
-//   host: "localhost", // Using localhost as specified
-//   database: "interactwithme2", // New database
-//   password: "one_password", // New user's password
-//   port: process.env.PORTNO || 5432, // Ensure the port is correct
-// });
+const pool = new Pool({
+  user: "interactone",
+  host: "localhost", // Using localhost as specified
+  database: "interactwithme2", // New database
+  password: "one_password", // New user's password
+  port: process.env.PORTNO || 5432, // Ensure the port is correct
+});
 /**
 Remote db
  */
-const pool = new Pool({
-  user: "postgres.uvdgwdoooebrlnpkqmtx",
-  host: "aws-0-eu-central-1.pooler.supabase.com", // Using localhost as specified
-  database: "postgres", // New database
-  password: "128Crestway482", // New user's password
-  port: 6543, // Ensure the port is correct
-});
+// const pool = new Pool({
+//   user: "postgres.uvdgwdoooebrlnpkqmtx",
+//   host: "aws-0-eu-central-1.pooler.supabase.com", // Using localhost as specified
+//   database: "postgres", // New database
+//   password: "128Crestway482", // New user's password
+//   port: 6543, // Ensure the port is correct
+// });
 
 function handleDatabaseError(error, res) {
   // Duplicate username
@@ -2109,10 +2140,8 @@ app.post("/api/password_reset_request", async (req, res) => {
     ]);
 
     // Create reset URL
-    //"https://connectedbackend-1gyi2d4gp-charles-projects-633a3526.vercel.app/"
-    //    const resetUrl = `http://${process.env.HOST}:${process.env.PORTFORAPP}/password-reset?token=${resetToken}`;
-
-    const resetUrl = `https://connectedbackend-1gyi2d4gp-charles-projects-633a3526.vercel.app/password-reset?token=${resetToken}`;
+    // HOST PORTFORAPP
+    const resetUrl = `http://${process.env.HOST}:${process.env.PORTFORAPP}/password-reset?token=${resetToken}`;
 
     // Send email
     const mailOptions = {
