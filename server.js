@@ -129,23 +129,23 @@ app.use(
   express.static(path.join(__dirname, "imageUploaded"))
 );
 // PostgreSQL connection configuration
-const pool = new Pool({
-  user: "interactone",
-  host: "localhost", // Using localhost as specified
-  database: "interactwithme2", // New database
-  password: "one_password", // New user's password
-  port: process.env.PORTNO || 5432, // Ensure the port is correct
-});
+// const pool = new Pool({
+//   user: "interactone",
+//   host: "localhost", // Using localhost as specified
+//   database: "interactwithme2", // New database
+//   password: "one_password", // New user's password
+//   port: process.env.PORTNO || 5432, // Ensure the port is correct
+// });
 /**
 Remote db
  */
-// const pool = new Pool({
-//   user: "postgres.uvdgwdoooebrlnpkqmtx",
-//   host: "aws-0-eu-central-1.pooler.supabase.com", // Using localhost as specified
-//   database: "postgres", // New database
-//   password: "128Crestway482", // New user's password
-//   port: 6543, // Ensure the port is correct
-// });
+const pool = new Pool({
+  user: "postgres.uvdgwdoooebrlnpkqmtx",
+  host: "aws-0-eu-central-1.pooler.supabase.com", // Using localhost as specified
+  database: "postgres", // New database
+  password: "128Crestway482", // New user's password
+  port: 6543, // Ensure the port is correct
+});
 
 function handleDatabaseError(error, res) {
   // Duplicate username
