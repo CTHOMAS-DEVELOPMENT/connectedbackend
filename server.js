@@ -65,7 +65,7 @@ const JWT_SECRET = process.env.LG_TOKEN;
 const allowedOrigins = [
   `http://${process.env.HOST}:${process.env.PORTFORAPP}`,
   `http://${process.env.HOST}:${process.env.PROXYPORT}`,
-  'https://your-remote-domain.com'
+  "https://connectedbackend.onrender.com"
 ];
 
 app.use(
