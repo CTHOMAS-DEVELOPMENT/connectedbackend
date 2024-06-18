@@ -65,18 +65,18 @@ const JWT_SECRET = process.env.LG_TOKEN;
 const allowedOrigins = [
   `http://${process.env.HOST}:${process.env.PORTFORAPP}`,
   `http://${process.env.HOST}:${process.env.PROXYPORT}`,
-  "https://connectedbackend.onrender.com"
+  'https://your-remote-domain.com'
 ];
 
 app.use(
   cors({
     origin: (origin, callback) => {
       // Log the origin for debugging
-      console.log(`Request origin: ${origin}`);
+      //console.log(`Request origin: ${origin}`);
       
       // Allow requests with no origin (like mobile apps or curl requests)
       if (!origin) {
-        console.log(`No origin provided, allowing request.`);
+        //console.log(`No origin provided, allowing request.`);
         return callback(null, true);
       }
 
