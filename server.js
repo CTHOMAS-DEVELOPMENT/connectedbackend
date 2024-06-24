@@ -73,31 +73,38 @@ const allowedOrigins = [
 
 ];
 
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      // Log the origin for debugging
-      //console.log(`Request origin: ${origin}`);
-      
-      // Allow requests with no origin (like mobile apps or curl requests)
-      if (!origin) {
-        //console.log(`No origin provided, allowing request.`);
-        return callback(null, true);
-      }
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Log the origin for debugging
+    // console.log(`Request origin: ${origin}`);
+    
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) {
+      // console.log(`No origin provided, allowing request.`);
+      return callback(null, true);
+    }
 
-      // Remove trailing slash from origin for comparison
-      const cleanedOrigin = origin.replace(/\/$/, '');
-      
-      if (allowedOrigins.indexOf(cleanedOrigin) !== -1) {
-        console.log(`Origin: ${cleanedOrigin} allowed by CORS`);
-        callback(null, true);
-      } else {
-        console.log(`Origin: ${cleanedOrigin} not allowed by CORS`);
-        callback(new Error('Not allowed by CORS'));
-      }
-    },
-  })
-);
+    // Remove trailing slash from origin for comparison
+    const cleanedOrigin = origin.replace(/\/$/, '');
+    
+    if (allowedOrigins.includes(cleanedOrigin)) {
+      console.log(`Origin: ${cleanedOrigin} allowed by CORS`);
+      callback(null, true);
+    } else {
+      console.log(`Origin: ${cleanedOrigin} not allowed by CORS`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], // Allowed methods
+  allowedHeaders: ["Content-Type", "Authorization"], // Allowed headers
+  credentials: true, // Allow credentials
+  optionsSuccessStatus: 204 // Some legacy browsers (IE11, various SmartTVs) choke on 204
+};
+
+app.use(cors(corsOptions));
+
+// Handling pre-flight requests
+app.options('*', cors(corsOptions));
 
 
 
