@@ -66,7 +66,7 @@ const allowedOrigins = [
   `http://${process.env.HOST}:${process.env.PORTFORAPP}`,
   `http://${process.env.HOST}:${process.env.PROXYPORT}`,
   'https://main--sage-twilight-26e49d.netlify.app', // Add your Netlify URL
-  'https://connectedbackend.onrender.com' // Your backend URL
+  'https://replit.com/@charlesavthomas/connectedbackend' // Your backend URL
 ];
 
 app.use(
