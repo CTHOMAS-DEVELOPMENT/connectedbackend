@@ -2034,16 +2034,16 @@ app.post("/api/users/:submissionId/text-entry", async (req, res) => {
   }
 });
 //"How do I connect with people?"
-async function handleAdminResponse(question, submissionId, adminChatId) {
-  const qa = await MyQaPipeline.getInstance();
-  const response = await qa(question, process.env.ADMIN_MESSAGE_2);
+// async function handleAdminResponse(question, submissionId, adminChatId) {
+//   const qa = await MyQaPipeline.getInstance();
+//   const response = await qa(question, process.env.ADMIN_MESSAGE_2);
 
-  // Insert the admin response into the database
-  await pool.query(
-    "INSERT INTO submission_dialog (submission_id, posting_user_id, text_content) VALUES ($1, $2, $3) RETURNING *",
-    [submissionId, adminChatId, response.answer]
-  );
-}
+//   // Insert the admin response into the database
+//   await pool.query(
+//     "INSERT INTO submission_dialog (submission_id, posting_user_id, text_content) VALUES ($1, $2, $3) RETURNING *",
+//     [submissionId, adminChatId, response.answer]
+//   );
+// }
 
 app.post("/api/user_submissions", async (req, res) => {
   try {
