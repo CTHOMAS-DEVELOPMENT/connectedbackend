@@ -72,37 +72,46 @@ app.use((req, res, next) => {
 const allowedOrigins = [
   `http://${process.env.HOST}:${process.env.PORTFORAPP}`,
   `http://${process.env.HOST}:${process.env.PROXYPORT}`,
-  'https://main--sage-twilight-26e49d.netlify.app', // Add your Netlify URL
-  'https://replit.com/@charlesavthomas/connectedbackend',
+  'https://main--sage-twilight-26e49d.netlify.app', // Netlify URL
   'https://319c902b-830b-40b8-9e70-0127655a9533-00-3a70lfr3db6lr.kirk.replit.dev' // Replit URL
 ];
-
 const corsOptions = {
   origin: (origin, callback) => {
-    if (!origin) return callback(null, true); // Allow requests with no origin, like mobile apps or curl requests
+    // Log the origin for debugging
+    console.log(`Request origin: ${origin}`);
+    
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    // Remove trailing slash from origin for comparison
     const cleanedOrigin = origin.replace(/\/$/, '');
+    
     if (allowedOrigins.includes(cleanedOrigin)) {
+      console.log(`Origin: ${cleanedOrigin} allowed by CORS`);
       callback(null, true);
     } else {
+      console.log(`Origin: ${cleanedOrigin} not allowed by CORS`);
       callback(new Error('Not allowed by CORS'));
     }
   },
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-  credentials: true,
-  optionsSuccessStatus: 204
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], // Allowed methods
+  allowedHeaders: ["Content-Type", "Authorization"], // Allowed headers
+  credentials: true, // Allow credentials
+  optionsSuccessStatus: 204 // Some legacy browsers (IE11, various SmartTVs) choke on 204
 };
 
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions)); // Handling pre-flight requests
+
+// Handle pre-flight requests
+app.options('*', cors(corsOptions));
 
 // Simple logging middleware for debugging
 app.use((req, res, next) => {
   console.log('Incoming Request:', req.method, req.url);
   console.log('Request Origin:', req.headers.origin);
+  console.log('Request Headers:', JSON.stringify(req.headers, null, 2));
   next();
 });
-
 
 
 const io = socketIo(server, {
@@ -2245,5 +2254,5 @@ app.post("/api/notify_offline_users", async (req, res) => {
 const PORT = process.env.PORT || process.env.PROXYPORT;
 
 server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`*Server running on port ${PORT}`);
 });
