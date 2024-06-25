@@ -64,6 +64,12 @@ const JWT_SECRET = process.env.LG_TOKEN;
 /*
 Access to fetch at 'https://319c902b-830b-40b8-9e70-0127655a9533-00-3a70lfr3db6lr.kirk.replit.dev//api/login' from origin 'https://main--sage-twilight-26e49d.netlify.app' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: Redirect is not allowed for a preflight request.
 */
+app.use((req, res, next) => {
+  console.log('Request Origin:', req.headers.origin);
+  console.log('Request Method:', req.method);
+  console.log('Request Headers:', req.headers);
+  next();
+});
 const allowedOrigins = [
   `http://${process.env.HOST}:${process.env.PORTFORAPP}`,
   `http://${process.env.HOST}:${process.env.PROXYPORT}`,
