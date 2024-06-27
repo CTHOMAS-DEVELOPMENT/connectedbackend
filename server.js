@@ -73,17 +73,15 @@ const allowedOrigins = [
   `http://${process.env.HOST}:${process.env.PORTFORAPP}`,
   `http://${process.env.HOST}:${process.env.PROXYPORT}`,
   'https://main--sage-twilight-26e49d.netlify.app', // Netlify URL
-  'https://319c902b-830b-40b8-9e70-0127655a9533-00-3a70lfr3db6lr.kirk.replit.dev' // Replit URL
+  'https://coconut-speckled-asterisk.glitch.me' // Glitch URL
 ];
+
 const corsOptions = {
   origin: (origin, callback) => {
-    // Log the origin for debugging
     console.log(`Request origin: ${origin}`);
     
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
+    if (!origin) return callback(null, true); // Allow requests with no origin (like mobile apps or curl requests)
     
-    // Remove trailing slash from origin for comparison
     const cleanedOrigin = origin.replace(/\/$/, '');
     
     if (allowedOrigins.includes(cleanedOrigin)) {
@@ -94,10 +92,10 @@ const corsOptions = {
       callback(new Error('Not allowed by CORS'));
     }
   },
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], // Allowed methods
-  allowedHeaders: ["Content-Type", "Authorization"], // Allowed headers
-  credentials: true, // Allow credentials
-  optionsSuccessStatus: 204 // Some legacy browsers (IE11, various SmartTVs) choke on 204
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true,
+  optionsSuccessStatus: 204
 };
 
 app.use(cors(corsOptions));
@@ -426,9 +424,15 @@ async function processZipFile(
   zipFilePath,
   userId,
   originalFileName,
+  zipData = null,
   removeZip = true
 ) {
-  const data = fs.readFileSync(zipFilePath);
+  let data;
+  if (zipData) {
+    data = zipData;
+  } else {
+    data = fs.readFileSync(zipFilePath);
+  }
   const zip = await JSZip.loadAsync(data);
   const zipFiles = Object.keys(zip.files);
   let jsonFileCount = 0;
@@ -1770,23 +1774,65 @@ app.post(
     }
   }
 );
-
 async function newUserAdminMessage(userId, title) {
-  const zipFilePath = path.join(__dirname, "Welcome_newAdmin.zip");
+  const localZipFilePath = path.join(__dirname, "Welcome_newAdmin.zip");
+  const remoteZipFilePath = process.env.ZIP_LOCATION;
   const originalFileName = title;
-  // Ensure the file exists
-  if (!fs.existsSync(zipFilePath)) {
-    throw new Error("ZIP file does not exist.");
+
+  let zipData;
+  console.log(
+    `Attempting to process ZIP file for user: ${userId}, title: ${title}`
+  );
+  // Check if the file exists locally
+  if (fs.existsSync(localZipFilePath)) {
+    console.log(`Local ZIP file found at ${localZipFilePath}`);
+    zipData = fs.readFileSync(localZipFilePath);
+  } else {
+    console.log(
+      `Local ZIP file not found. Attempting to fetch from ${remoteZipFilePath}`
+    );
+
+    // Fetch the ZIP file from the remote URL
+    try {
+      const response = await axios.get(remoteZipFilePath, { responseType: 'arraybuffer' });
+
+      if (response.status !== 200) {
+        throw new Error(`Failed to download ZIP file. HTTP status: ${response.status}`);
+      }
+
+      console.log(`Successfully fetched ZIP file from ${remoteZipFilePath}`);
+      zipData = Buffer.from(response.data);
+    } catch (error) {
+      console.error(
+        `Error fetching ZIP file from ${remoteZipFilePath}:`,
+        error.message
+      );
+      throw new Error(
+        `Could not fetch ZIP file from remote location: ${error.message}`
+      );
+    }
   }
 
-  // Process the ZIP file using the extracted function
-  const result = await processZipFile(
-    zipFilePath,
-    userId,
-    originalFileName,
-    false
-  );
-  return result;
+  // Call processZipFile with the required arguments
+  try {
+    const result = await processZipFile(
+      localZipFilePath,
+      userId,
+      originalFileName,
+      zipData, // Derived from fs.readFileSync or fetch response
+      false
+    );
+    console.log(
+      `Successfully processed ZIP file for user: ${userId}, title: ${title}`
+    );
+    return result;
+  } catch (error) {
+    console.error(
+      `Error processing ZIP file for user: ${userId}, title: ${title}:`,
+      error.message
+    );
+    throw error;
+  }
 }
 
 async function deleteExpiredInteractions() {
@@ -2050,18 +2096,6 @@ app.post("/api/users/:submissionId/text-entry", async (req, res) => {
     });
   }
 });
-//"How do I connect with people?"
-// async function handleAdminResponse(question, submissionId, adminChatId) {
-//   const qa = await MyQaPipeline.getInstance();
-//   const response = await qa(question, process.env.ADMIN_MESSAGE_2);
-
-//   // Insert the admin response into the database
-//   await pool.query(
-//     "INSERT INTO submission_dialog (submission_id, posting_user_id, text_content) VALUES ($1, $2, $3) RETURNING *",
-//     [submissionId, adminChatId, response.answer]
-//   );
-// }
-
 app.post("/api/user_submissions", async (req, res) => {
   try {
     const { user_id, title, userIds } = req.body;
