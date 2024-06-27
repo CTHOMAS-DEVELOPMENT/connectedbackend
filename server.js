@@ -19,20 +19,6 @@ const server = http.createServer(app);
 const bcrypt = require("bcrypt");
 const nodemailer = require("nodemailer");
 
-class MyQaPipeline {
-  static task = "question-answering";
-  static model = "Xenova/distilbert-base-uncased-distilled-squad";
-  static instance = null;
-  static async getInstance(progress_callback = null) {
-    if (this.instance === null) {
-      // Dynamically import the Transformers.js library
-      let { pipeline, env } = await import("@xenova/transformers");
-      this.instance = pipeline(this.task, this.model, { progress_callback });
-    }
-    return this.instance;
-  }
-}
-
 function loadEnvVariables() {
   // Adjust if your .env file is located elsewhere. Using __dirname ensures it looks in the same directory as your server.js file.
   const envPath = path.join(__dirname, ".env");
@@ -61,9 +47,7 @@ loadEnvVariables();
 
 const RESET_EMAIL = process.env.RESET_EMAIL;
 const JWT_SECRET = process.env.LG_TOKEN;
-/*
-Access to fetch at 'https://319c902b-830b-40b8-9e70-0127655a9533-00-3a70lfr3db6lr.kirk.replit.dev//api/login' from origin 'https://main--sage-twilight-26e49d.netlify.app' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: Redirect is not allowed for a preflight request.
-*/
+
 app.use((req, res, next) => {
   console.log('Incoming Request:', req.method, req.url);
   console.log('Request Origin:', req.headers.origin);
