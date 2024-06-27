@@ -1,4 +1,6 @@
 # dependencies
 .env2
+.env3
+.gitignore
 /node_modules
 
