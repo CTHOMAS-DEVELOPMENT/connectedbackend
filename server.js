@@ -4,13 +4,14 @@ const multer = require("multer");
 const fs = require("fs");
 const fsx = require("fs-extra");
 const path = require("path");
-const sharp = require("sharp");
+const Jimp = require('jimp');
 const jwt = require("jsonwebtoken");
 const http = require("http");
 const socketIo = require("socket.io");
 const cors = require("cors"); // Assuming you're using the 'cors' package for Express
 const JSZip = require("jszip");
 const util = require("util");
+const axios = require("axios");
 
 // Create a new express application
 const app = express();
@@ -45,34 +46,23 @@ function loadEnvVariables() {
 // Call the function at the start of your application
 loadEnvVariables();
 
-const RESET_EMAIL = process.env.RESET_EMAIL;
 const JWT_SECRET = process.env.LG_TOKEN;
 
-app.use((req, res, next) => {
-  console.log('Incoming Request:', req.method, req.url);
-  console.log('Request Origin:', req.headers.origin);
-  next();
-});
 const allowedOrigins = [
+  "http://localhost:3002/",
   `http://${process.env.HOST}:${process.env.PORTFORAPP}`,
   `http://${process.env.HOST}:${process.env.PROXYPORT}`,
-  'https://main--sage-twilight-26e49d.netlify.app', // Netlify URL
+  'https://sage-twilight-26e49d.netlify.app', // Netlify URL
+  'https://main--sage-twilight-26e49d.netlify.app', // Netlify branch URL
   'https://coconut-speckled-asterisk.glitch.me' // Glitch URL
 ];
 
 const corsOptions = {
   origin: (origin, callback) => {
-    console.log(`Request origin: ${origin}`);
-    
-    if (!origin) return callback(null, true); // Allow requests with no origin (like mobile apps or curl requests)
-    
-    const cleanedOrigin = origin.replace(/\/$/, '');
-    
-    if (allowedOrigins.includes(cleanedOrigin)) {
-      console.log(`Origin: ${cleanedOrigin} allowed by CORS`);
+    console.log('Origin:', origin); // Log the origin for debugging
+    if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
       callback(null, true);
     } else {
-      console.log(`Origin: ${cleanedOrigin} not allowed by CORS`);
       callback(new Error('Not allowed by CORS'));
     }
   },
@@ -84,39 +74,45 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// Handle pre-flight requests
+// Handle pre-flight requests for all routes
 app.options('*', cors(corsOptions));
 
-// Simple logging middleware for debugging
+// Logging middleware for debugging
 app.use((req, res, next) => {
   console.log('Incoming Request:', req.method, req.url);
   console.log('Request Origin:', req.headers.origin);
-  console.log('Request Headers:', JSON.stringify(req.headers, null, 2));
   next();
 });
 
-
+// const io = socketIo(server, {
+//   cors: {
+//     origin: (origin, callback) => {
+//       if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
+//         callback(null, true);
+//       } else {
+//         callback(new Error('Not allowed by CORS'));
+//       }
+//     },
+//     methods: ["GET", "POST"],
+//     allowedHeaders: ["my-custom-header"],
+//     credentials: true,
+//   },
+// });
+// Socket.io configuration
 const io = socketIo(server, {
   cors: {
-    origin: (origin, callback) => {
-      if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
-        callback(null, true);
-      } else {
-        callback(new Error('Not allowed by CORS'));
-      }
-    },
+    origin: allowedOrigins,
     methods: ["GET", "POST"],
-    allowedHeaders: ["my-custom-header"],
+    allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   },
 });
 
-
 const transporter = nodemailer.createTransport({
   service: "gmail", // Example using Gmail
   auth: {
-    user: RESET_EMAIL,
-    pass: "oevo zajd vezi qjka",
+    user: process.env.RESET_EMAIL,
+    pass: process.env.RESET_EMAIL_PASSWORD
   },
   tls: {
     rejectUnauthorized: false,
@@ -129,22 +125,12 @@ app.use(
   express.static(path.join(__dirname, "imageUploaded"))
 );
 // PostgreSQL connection configuration
-// const pool = new Pool({
-//   user: "interactone",
-//   host: "localhost", // Using localhost as specified
-//   database: "interactwithme2", // New database
-//   password: "one_password", // New user's password
-//   port: process.env.PORTNO || 5432, // Ensure the port is correct
-// });
-/**
-Remote db
- */
 const pool = new Pool({
-  user: "postgres.uvdgwdoooebrlnpkqmtx",
-  host: "aws-0-eu-central-1.pooler.supabase.com", // Using localhost as specified
-  database: "postgres", // New database
-  password: "128Crestway482", // New user's password
-  port: 6543, // Ensure the port is correct
+  user: process.env.CONNECTION_POOL_USER,
+  host: process.env.CONNECTION_POOL_HOST,
+  database: process.env.CONNECTION_POOL_DATABASE,
+  password: process.env.CONNECTION_POOL_PASSWORD,
+  port: process.env.CONNECTION_POOL_PORT
 });
 
 function handleDatabaseError(error, res) {
@@ -364,6 +350,7 @@ app.get("/api/authorised/:userId", async (req, res) => {
 // Login route
 
 app.post("/api/login", async (req, res) => {
+  console.log("Login request received:", req.body);
   try {
     const { username, password } = req.body;
     const result = await pool.query("SELECT * FROM users WHERE username = $1", [
@@ -399,7 +386,7 @@ app.post("/api/login", async (req, res) => {
       res.status(404).json({ success: false, message: "User not found." });
     }
   } catch (error) {
-    console.error(error);
+    console.error("Error during login:", error);
     res.status(500).send({ message: "An error occurred." });
   }
 });
@@ -1208,28 +1195,22 @@ async function restoreOriginalProfilePicture(client, userId, originalFilePath) {
 }
 
 async function generateThumbnail(filePath, thumbnailPath) {
-  return new Promise((resolve, reject) => {
-    sharp(filePath)
-      .metadata()
-      .then((metadata) => {
-        const longerDimension =
-          metadata.width > metadata.height ? "width" : "height";
-        const resizeOptions = { [longerDimension]: 100 };
+  try {
+    const image = await Jimp.read(filePath);
+    const longerDimension = image.bitmap.width > image.bitmap.height ? 'width' : 'height';
 
-        sharp(filePath)
-          .resize(resizeOptions)
-          .toFile(thumbnailPath)
-          .then(() => {
-            resolve();
-          })
-          .catch((error) => {
-            reject(error);
-          });
-      })
-      .catch((error) => {
-        reject(error);
-      });
-  });
+    if (longerDimension === 'width') {
+      image.resize(100, Jimp.AUTO); // Resize keeping the width as 100
+    } else {
+      image.resize(Jimp.AUTO, 100); // Resize keeping the height as 100
+    }
+
+    await image.writeAsync(thumbnailPath);
+    console.log(`Thumbnail generated at ${thumbnailPath}`);
+  } catch (error) {
+    console.error(`Error generating thumbnail: ${error.message}`);
+    throw error;
+  }
 }
 
 async function delay(ms) {
@@ -2064,11 +2045,7 @@ app.post("/api/users/:submissionId/text-entry", async (req, res) => {
       dialogEntry: insertResult.rows[0],
       submissionUpdate: updateResult.rows[0],
     });
-    // Check if it's an admin post and handle separately
-    if (adminChatId > 0) {
-      // Assuming adminId is the identifier for posts meant for the chatbot
-      handleAdminResponse(textContent, submissionId, adminChatId);
-    }
+
   } catch (error) {
     // Rollback the transaction on error
     await pool.query("ROLLBACK");
@@ -2146,7 +2123,7 @@ app.post("/api/password_reset_request", async (req, res) => {
 
     // Send email
     const mailOptions = {
-      from: RESET_EMAIL,
+      from: process.env.RESET_EMAIL,
       to: email,
       subject: "Password Reset Request",
       text: `Please click on the following link to reset your password: ${resetUrl}`,
@@ -2243,7 +2220,7 @@ app.post("/api/notify_offline_users", async (req, res) => {
       const subject = getSubject();
 
       const mailOptions = {
-        from: RESET_EMAIL,
+        from: process.env.RESET_EMAIL,
         to: email,
         subject: subject,
         text: message,
@@ -2272,5 +2249,5 @@ app.post("/api/notify_offline_users", async (req, res) => {
 const PORT = process.env.PORT || process.env.PROXYPORT;
 
 server.listen(PORT, () => {
-  console.log(`*Server running on port ${PORT}`);
+  console.log(`**Server running on port ${PORT}`);
 });
