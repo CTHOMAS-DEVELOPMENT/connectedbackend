@@ -84,20 +84,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// const io = socketIo(server, {
-//   cors: {
-//     origin: (origin, callback) => {
-//       if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
-//         callback(null, true);
-//       } else {
-//         callback(new Error('Not allowed by CORS'));
-//       }
-//     },
-//     methods: ["GET", "POST"],
-//     allowedHeaders: ["my-custom-header"],
-//     credentials: true,
-//   },
-// });
 // Socket.io configuration
 const io = socketIo(server, {
   cors: {
@@ -120,10 +106,21 @@ const transporter = nodemailer.createTransport({
 });
 app.use(express.json());
 // Serve static files from the 'backend/imageUploaded' directory
-app.use(
-  "/uploaded-images",
-  express.static(path.join(__dirname, "imageUploaded"))
-);
+const isLocal = process.env.NODE_ENV === 'development';
+
+if (isLocal) {
+  // Local environment configuration
+  app.use(
+    "/uploaded-images",
+    express.static(path.join(__dirname, "imageUploaded"))
+  );
+} else {
+  // Remote environment configuration
+  app.use('/uploaded-images', (req, res, next) => {
+    console.log('Serving static file:', req.path);
+    next();
+  }, express.static(path.join(__dirname, 'backend/imageUploaded')));
+}
 // PostgreSQL connection configuration
 const pool = new Pool({
   user: process.env.CONNECTION_POOL_USER,
@@ -134,15 +131,9 @@ const pool = new Pool({
 });
 
 function handleDatabaseError(error, res) {
-  // Duplicate username
-  if (error.code === "23505" && error.constraint === "users_username_key") {
-    res.status(409).send({ message: "This username is already taken." });
-  }
-  // Other database errors
-  else {
-    console.error(error);
-    res.status(500).send({ message: "An error occurred." });
-  }
+  // Your error handling logic
+  console.error("Database error:", error);
+  res.status(500).send({ message: "An error occurred." });
 }
 // Verify database connection
 pool.connect((err, client, release) => {
@@ -300,6 +291,9 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
+app.get('/test-image', (req, res) => {
+  res.sendFile(path.join(__dirname, 'backend/imageUploaded/file-1719702423262.JPEG'));
+});
 // Define a test route
 app.get("/test-db", async (req, res) => {
   try {
@@ -310,7 +304,18 @@ app.get("/test-db", async (req, res) => {
     res.status(500).send("Error while testing database");
   }
 });
-
+function listDirectoryContents(directoryPath) {
+  fs.readdir(directoryPath, (err, files) => {
+    if (err) {
+      console.error(`Error listing directory contents: ${err.message}`);
+    } else {
+      console.log(`Contents of ${directoryPath}:`);
+      files.forEach(file => {
+        console.log(file);
+      });
+    }
+  });
+}
 app.get("/api/authorised/:userId", async (req, res) => {
   let tokenMatches = false;
   let token = "";
@@ -1149,7 +1154,7 @@ app.get("/api/users/:userId/profile-picture", async (req, res) => {
 
 async function deleteFile(filePath) {
   try {
-    await fsx.unlink(filePath);
+    await fs.promises.unlink(filePath);
     console.log(`Successfully deleted file: ${filePath}`);
   } catch (error) {
     if (error.code === "ENOENT") {
@@ -1196,6 +1201,12 @@ async function restoreOriginalProfilePicture(client, userId, originalFilePath) {
 
 async function generateThumbnail(filePath, thumbnailPath) {
   try {
+      // Ensure the directory exists
+      const dir = path.dirname(thumbnailPath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+  
     const image = await Jimp.read(filePath);
     const longerDimension = image.bitmap.width > image.bitmap.height ? 'width' : 'height';
 
@@ -1213,7 +1224,7 @@ async function generateThumbnail(filePath, thumbnailPath) {
   }
 }
 
-async function delay(ms) {
+function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
@@ -1263,6 +1274,7 @@ app.post(
       // Ensure all file operations are completed before attempting to delete old files
       await delay(100); // Small delay to ensure file locks are released
 
+      //listDirectoryContents(path.dirname(newFilePath));
       // If there was an existing profile picture, delete the file and its thumbnail after the transaction is committed
       if (originalFilePath) {
         try {
@@ -1575,6 +1587,8 @@ app.patch("/api/submission-dialog/:dialogId", async (req, res) => {
 
 app.get("/api/users/:submissionId/posts", async (req, res) => {
   try {
+    console.log("Posting list api")
+    console.log("Posting list api submissionId",submissionId)
     const submissionId = req.params.submissionId;
 
     // New query to fetch from the submission_dialog table
