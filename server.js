@@ -289,7 +289,18 @@ app.get("/test-db", async (req, res) => {
     res.status(500).send("Error while testing database");
   }
 });
-
+function listDirectoryContents(directoryPath) {
+  fs.readdir(directoryPath, (err, files) => {
+    if (err) {
+      console.error(`Error listing directory contents: ${err.message}`);
+    } else {
+      console.log(`Contents of ${directoryPath}:`);
+      files.forEach(file => {
+        console.log(file);
+      });
+    }
+  });
+}
 app.get("/api/authorised/:userId", async (req, res) => {
   let tokenMatches = false;
   let token = "";
@@ -1476,13 +1487,22 @@ app.post(
         [submissionId, postingUserId, uploadedFilePath]
       );
 
-      res.json(result.rows[0]);
+      const newPost = result.rows[0];
+      // Emit postUpdated event to all clients viewing the same engagement
+      const interestedUsersQuery = `SELECT participating_user_id FROM submission_members WHERE submission_id = $1`;
+      const interestedUsersResult = await pool.query(interestedUsersQuery, [submissionId]);
+      const interestedUserIds = interestedUsersResult.rows.map((row) => row.participating_user_id);
+
+      io.to(`submission-${submissionId}`).emit("postUpdated", { updatedPost: newPost, interestedUserIds });
+
+      res.json(newPost);
     } catch (error) {
       console.error(error);
       handleDatabaseError(error, res);
     }
   }
 );
+
 
 app.post(
   "/api/submission-dialog/:dialogId/update-item",
@@ -1711,22 +1731,24 @@ app.get("/api/closed-interaction-zip/:submissionId", async (req, res) => {
       JSON.stringify(posts, null, 2)
     );
 
+    // Determine base directory for images 999
+    const baseDir = isLocal ? path.join(__dirname, "imageUploaded") : path.join(__dirname, "backend/imageUploaded");
+
     // Loop through posts to add any media files to the ZIP
     for (const post of posts.filter((post) => post.uploaded_path)) {
-      // Sanitize and resolve the full path for the uploaded file
-      const newPath=path.join(__dirname, post.uploaded_path);
-      console.log("newPath",newPath)
-      const sanitizedPath = post.uploaded_path.replace("uploaded-images\\", "");
-      const fullPath = path.join(__dirname, "imageUploaded", sanitizedPath);
-      console.log("fullPath",fullPath)
+      // Resolve the full path for the uploaded file based on the environment
+      const sanitizedPath = post.uploaded_path.replace("uploaded-images\\", "").replace("uploaded-images/", "");
+      const fullPath = path.join(baseDir, sanitizedPath);
+      console.log("fullPath", fullPath);
+
       // Ensure the file exists before attempting to add it to the ZIP
-      console.log(`File found: ${fullPath}`);
       if (fs.existsSync(fullPath)) {
         zip.file(path.basename(fullPath), fs.readFileSync(fullPath));
       } else {
         console.log(`File not found: ${fullPath}`);
       }
     }
+
     zip
       .generateNodeStream({ type: "nodebuffer", streamFiles: true })
       .pipe(res)
@@ -1738,6 +1760,7 @@ app.get("/api/closed-interaction-zip/:submissionId", async (req, res) => {
     res.status(500).send("Server error occurred while creating ZIP.");
   }
 });
+
 app.post(
   "/api/build-interaction-from-files",
   upload.single("zipFile"),
@@ -1829,7 +1852,7 @@ async function newUserAdminMessage(userId, title) {
     throw error;
   }
 }
-
+//999
 async function deleteExpiredInteractions() {
   await pool.query("BEGIN");
 
@@ -1842,24 +1865,23 @@ async function deleteExpiredInteractions() {
         WHERE (2 * 24 * 60 * 60 - EXTRACT(epoch FROM NOW() - lastuser_addition)) < 0
       )
     `);
-    let pathType = "";
+
+    // Determine base directory for images
+    const baseDir = isLocal ? path.join(__dirname, "imageUploaded") : path.join(__dirname, "backend/imageUploaded");
+
     // Delete the images from the filesystem
     for (const row of imagesToDelete) {
-      pathType = typeof row.uploaded_path;
+      const pathType = typeof row.uploaded_path;
 
-      if (pathType === "string" && pathType.trim() !== "") {
+      if (pathType === "string" && row.uploaded_path.trim() !== "") {
         // Removing the 'uploaded-images' segment from the path
-        let sanitizedPath = row.uploaded_path.replace(
-          /^.*[\\\/]uploaded-images[\\\/]/,
-          ""
-        );
-
-        const fullPath = path.join(__dirname, "imageUploaded", sanitizedPath);
+        const sanitizedPath = row.uploaded_path.replace(/^.*[\\\/]uploaded-images[\\\/]/, "");
+        const fullPath = path.join(baseDir, sanitizedPath);
 
         try {
           if (fs.existsSync(fullPath)) {
             await fs.promises.unlink(fullPath);
-            //console.log(`Successfully deleted: ${fullPath}`);
+            console.log(`Successfully deleted: ${fullPath}`);
           } else {
             console.log(`File not found: ${fullPath}, skipping deletion.`);
           }
@@ -1867,9 +1889,7 @@ async function deleteExpiredInteractions() {
           console.error(`Failed to delete file ${fullPath}: `, error);
         }
       } else {
-        if (pathType !== "object") {
-          console.log("Invalid path encountered, skipping deletion.");
-        }
+        console.log("Invalid path encountered, skipping deletion.");
       }
     }
 
@@ -1906,6 +1926,7 @@ async function deleteExpiredInteractions() {
     // Decide if you want to rethrow the error or handle it differently
   }
 }
+
 app.post("/api/end_interaction", async (req, res) => {
   const { submissionId } = req.body; // Extract the submissionId from the request body
 
@@ -1932,37 +1953,38 @@ app.post("/api/end_interaction", async (req, res) => {
 
 app.get("/api/my_interaction_titles", async (req, res) => {
   try {
-    const loggedInId = req.query.logged_in_id; // Get the logged-in user's ID from the query parameters
+    const loggedInId = req.query.logged_in_id;
     if (!loggedInId) {
       return res.status(400).send({ message: "Logged in ID is required." });
     }
     await deleteExpiredInteractions();
 
     const query = `
-    SELECT 
-    us.id AS submission_id, 
-    us.title, 
-    TO_CHAR(us.created_at, 'Day, DD Month YYYY HH24:MI') AS formatted_created_at,
-    TO_CHAR(us.created_at, 'Mon DD HH24:MI') AS formatted_created_at_mobile,
-    CONCAT(
-      FLOOR(EXTRACT(epoch FROM interval '2 days' - (NOW() - us.lastuser_addition))/86400) || ' Days ',
-      FLOOR((EXTRACT(epoch FROM interval '2 days' - (NOW() - us.lastuser_addition)) % 86400) / 3600) || ' Hours ',
-      FLOOR((EXTRACT(epoch FROM interval '2 days' - (NOW() - us.lastuser_addition)) % 3600) / 60) || ' Minutes ',
-      FLOOR(EXTRACT(epoch FROM interval '2 days' - (NOW() - us.lastuser_addition)) % 60) || ' Seconds'
-    ) AS expected_end,
-    us.user_id, 
-    u.username
-  FROM 
-    submission_members sm
-  JOIN 
-    user_submissions us ON sm.submission_id = us.id
-  JOIN 
-    users u ON us.user_id = u.id
-  WHERE 
-    sm.participating_user_id = $1;  
+      SELECT 
+        us.id AS submission_id, 
+        us.title, 
+        TO_CHAR(us.created_at, 'Day, DD Month YYYY HH24:MI') AS formatted_created_at,
+        TO_CHAR(us.created_at, 'Mon DD HH24:MI') AS formatted_created_at_mobile,
+        CONCAT(
+          FLOOR(EXTRACT(epoch FROM interval '2 days' - (NOW() - us.lastuser_addition))/86400) || ' Days ',
+          FLOOR((EXTRACT(epoch FROM interval '2 days' - (NOW() - us.lastuser_addition)) % 86400) / 3600) || ' Hours ',
+          FLOOR((EXTRACT(epoch FROM interval '2 days' - (NOW() - us.lastuser_addition)) % 3600) / 60) || ' Minutes ',
+          FLOOR(EXTRACT(epoch FROM interval '2 days' - (NOW() - us.lastuser_addition)) % 60) || ' Seconds'
+        ) AS expected_end,
+        (us.lastuser_addition + interval '2 days') AS end_timestamp, -- Add this line
+        us.user_id, 
+        u.username
+      FROM 
+        submission_members sm
+      JOIN 
+        user_submissions us ON sm.submission_id = us.id
+      JOIN 
+        users u ON us.user_id = u.id
+      WHERE 
+        sm.participating_user_id = $1;
     `;
 
-    const result = await pool.query(query, [loggedInId]); // Execute the query with the logged-in user's ID
+    const result = await pool.query(query, [loggedInId]);
     res.json(result.rows);
   } catch (error) {
     console.error(error);
@@ -1971,6 +1993,7 @@ app.get("/api/my_interaction_titles", async (req, res) => {
     });
   }
 });
+
 app.get("/api/interaction_user_list", async (req, res) => {
   try {
     const submissionId = req.query.submission_id; // Get the submission ID from the query parameters
@@ -2320,5 +2343,5 @@ process.on('unhandledRejection', (reason, promise) => {
 const PORT = process.env.PORT || process.env.PROXYPORT;
 
 server.listen(PORT, () => {
-  console.log(`*777*Server running on port ${PORT}`);
+  console.log(`*8002*Server running on port ${PORT}`);
 });
