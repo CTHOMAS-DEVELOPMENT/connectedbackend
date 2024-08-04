@@ -2424,5 +2424,5 @@ process.on('unhandledRejection', (reason, promise) => {
 const PORT = process.env.PORT || process.env.PROXYPORT;
 
 server.listen(PORT, () => {
-  console.log(`*8007*Server running on port ${PORT}`);
+  console.log(`*8008*Server running on port ${PORT}`);
 });
