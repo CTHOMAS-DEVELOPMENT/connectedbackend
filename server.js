@@ -51,7 +51,8 @@ const allowedOrigins = [
   `http://${process.env.HOST}:${process.env.PROXYPORT}`,
   'https://sage-twilight-26e49d.netlify.app', // Netlify URL
   'https://main--sage-twilight-26e49d.netlify.app', // Netlify branch URL
-  'https://coconut-speckled-asterisk.glitch.me' // Glitch URL
+  'https://coconut-speckled-asterisk.glitch.me', // Glitch URL
+  'https://connectedengager.eu-4.evennode.com'
 ];
 
 const corsOptions = {
