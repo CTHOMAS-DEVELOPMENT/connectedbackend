@@ -84,13 +84,13 @@ app.options('*', cors(corsOptions));
 // Middleware to redirect HTTP to HTTPS
 app.use((req, res, next) => {
   if (req.secure) {
-    // request was via https, so do no special handling
     next();
   } else {
-    // request was via http, so redirect to https
+    console.log(`Redirecting request from http to https: ${req.url}`);
     res.redirect(`https://${req.headers.host}${req.url}`);
   }
 });
+
 // Socket.io configuration
 const io = socketIo(server, {
   cors: {
