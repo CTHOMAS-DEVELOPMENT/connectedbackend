@@ -10,7 +10,6 @@ const socketIo = require("socket.io");
 const cors = require("cors"); // Assuming you're using the 'cors' package for Express
 const JSZip = require("jszip");
 const util = require("util");
-const axios = require("axios");
 const Groq = require('groq-sdk');
 // Create a new express application
 const app = express();
@@ -52,8 +51,7 @@ const allowedOrigins = [
   'https://sage-twilight-26e49d.netlify.app', // Netlify URL
   'https://main--sage-twilight-26e49d.netlify.app', // Netlify branch URL
   'https://coconut-speckled-asterisk.glitch.me', // Glitch URL
-  'https://connectedengager.eu-4.evennode.com',
-  'http://connectedengager.eu-4.evennode.com'
+  'https://connectedengager.eu-4.evennode.com'
 
 ];
 
@@ -83,7 +81,16 @@ app.options('*', cors(corsOptions));
 //   console.log('Request Origin:', req.headers.origin);
 //   next();
 // });
-
+// Middleware to redirect HTTP to HTTPS
+app.use((req, res, next) => {
+  if (req.secure) {
+    // request was via https, so do no special handling
+    next();
+  } else {
+    // request was via http, so redirect to https
+    res.redirect(`https://${req.headers.host}${req.url}`);
+  }
+});
 // Socket.io configuration
 const io = socketIo(server, {
   cors: {
@@ -2292,7 +2299,7 @@ app.post("/api/password_reset_request", async (req, res) => {
 
     // Create reset URL
     // HOST PORTFORAPP
-    const resetUrl = `http://${process.env.HOST}:${process.env.PORTFORAPP}/password-reset?token=${resetToken}`;
+    const resetUrl = `https://${process.env.HOST}:${process.env.PORTFORAPP}/password-reset?token=${resetToken}`;
 
     // Send email
     const mailOptions = {
@@ -2368,9 +2375,9 @@ app.post("/api/notify_offline_users", async (req, res) => {
           case "Text":
           case "audio":
           case "picture":
-            return `Hey ${username}, ${loggedInUserName} has added a ${type} post to the '${title}' interaction you are part of in the ConnectedEngaged application.\n Please login to catch up at: http://${process.env.ROOT_DOMAIN}`;
+            return `Hey ${username}, ${loggedInUserName} has added a ${type} post to the '${title}' interaction you are part of in the ConnectedEngaged application.\n Please login to catch up at: https://${process.env.ROOT_DOMAIN}`;
           case "connection_accepted":
-            return `Hey ${username}, ${loggedInUserName} has accepted your connection request you made in the ConnectedEngaged application.\n Please login to catch up at: http://${process.env.ROOT_DOMAIN}`;
+            return `Hey ${username}, ${loggedInUserName} has accepted your connection request you made in the ConnectedEngaged application.\n Please login to catch up at: https://${process.env.ROOT_DOMAIN}`;
           default:
             return "unknown type";
         }
@@ -2427,5 +2434,5 @@ process.on('unhandledRejection', (reason, promise) => {
 const PORT = process.env.PORT || process.env.PROXYPORT;
 
 server.listen(PORT, () => {
-  console.log(`*9999*Server running on port ${PORT}`);
+  console.log(`*9876*Server running on port ${PORT}`);
 });
