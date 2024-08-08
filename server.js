@@ -76,18 +76,33 @@ app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
 
 // Logging middleware for debugging
-// app.use((req, res, next) => {
-//   console.log('Incoming Request:', req.method, req.url);
-//   console.log('Request Origin:', req.headers.origin);
-//   next();
-// });
+app.use((req, res, next) => {
+  console.log('Incoming Request:', req.method, req.url);
+  console.log('Request Origin:', req.headers.origin);
+  
+  // Capture the original send function to log response details
+  const originalSend = res.send;
+  res.send = function(body) {
+    console.log('Response Status:', res.statusCode);
+    console.log('Response Headers:', res.getHeaders());
+    if (res.statusCode === 307 || res.statusCode === 308) {
+      console.log('Redirecting to:', res.get('Location'));
+    }
+    originalSend.call(this, body);
+  };
+
+  next();
+});
 // Middleware to redirect HTTP to HTTPS
 app.use((req, res, next) => {
   if (req.secure) {
     next();
   } else {
     console.log(`Redirecting request from http to https: ${req.url}`);
-    res.redirect(`https://${req.headers.host}${req.url}`);
+    console.log('Original Headers:', req.headers);
+    const secureUrl = `https://${req.headers.host}${req.url}`;
+    console.log(`Redirecting to: ${secureUrl}`);
+    res.redirect(307, secureUrl);  // Use 307 to maintain the method and body
   }
 });
 
