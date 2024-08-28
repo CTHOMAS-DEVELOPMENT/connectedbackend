@@ -528,7 +528,8 @@ app.post("/api/register", async (req, res) => {
       floatsMyBoat,
       sex,
       aboutYou,
-      aboutMyBotPal
+      aboutMyBotPal,
+      admin_face // New field from the frontend
     } = req.body;
 
     const saltRounds = 10;
@@ -537,7 +538,7 @@ app.post("/api/register", async (req, res) => {
     await client.query("BEGIN"); // Start transaction
     // Insert the new User
     const userInsertResult = await client.query(
-      "INSERT INTO users (username, email, password, hobbies, sexual_orientation, floats_my_boat, sex, about_you, about_my_bot_pal) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id",
+      "INSERT INTO users (username, email, password, hobbies, sexual_orientation, floats_my_boat, sex, about_you, about_my_bot_pal, admin_face) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id",
       [
         username,
         email,
@@ -547,10 +548,12 @@ app.post("/api/register", async (req, res) => {
         floatsMyBoat,
         sex,
         aboutYou,
-        aboutMyBotPal
+        aboutMyBotPal,
+        admin_face // Save the admin_face value to the database
       ]
     );
     const newUserId = userInsertResult.rows[0].id;
+    
     // Extract the admin's ID
     const existingAdminId = parseInt(process.env.SYSTEM_ADMIN_ID);
     const [userOneId, userTwoId] =
@@ -563,7 +566,9 @@ app.post("/api/register", async (req, res) => {
       "INSERT INTO connections (user_one_id, user_two_id) VALUES ($1, $2)",
       [userOneId, userTwoId]
     );
+
     await client.query("COMMIT");
+
     // Insert welcome submission for the new user by the admin
     const submissionInsertResult = await client.query(
       "INSERT INTO user_submissions (user_id, title) VALUES ($1, $2) RETURNING id",
@@ -586,6 +591,7 @@ app.post("/api/register", async (req, res) => {
       "INSERT INTO submission_dialog (submission_id, posting_user_id, text_content) VALUES ($1, $2, $3)",
       [submissionId, existingAdminId, process.env.ADMIN_MESSAGE_1]
     );
+    
     // Send the response to the client
     res.json({ id: newUserId, username: username });
   } catch (error) {
@@ -601,6 +607,7 @@ app.post("/api/register", async (req, res) => {
   }
 });
 
+
 app.put("/api/update_profile/:id", async (req, res) => {
   const { id } = req.params;
   let {
@@ -612,7 +619,8 @@ app.put("/api/update_profile/:id", async (req, res) => {
     floatsMyBoat,
     sex,
     aboutYou,
-    aboutMyBotPal
+    aboutMyBotPal,
+    admin_face // Add the admin_face field here
   } = req.body;
 
   // Validation for password length if it's not empty
@@ -642,8 +650,9 @@ app.put("/api/update_profile/:id", async (req, res) => {
   floats_my_boat = COALESCE($6, floats_my_boat),
   sex = COALESCE($7, sex),
   about_you = COALESCE($8, about_you),
-  about_my_bot_pal = COALESCE($9, about_my_bot_pal)
-  WHERE id = $10
+  about_my_bot_pal = COALESCE($9, about_my_bot_pal),
+  admin_face = COALESCE($10, admin_face)  -- Include admin_face here
+  WHERE id = $11
   RETURNING *;
 `;
 
@@ -657,6 +666,7 @@ app.put("/api/update_profile/:id", async (req, res) => {
     sex,
     aboutYou,
     aboutMyBotPal,
+    admin_face, // Include the value for admin_face
     id,
   ];
 
@@ -672,6 +682,7 @@ app.put("/api/update_profile/:id", async (req, res) => {
     res.status(500).send("Failed to update profile");
   }
 });
+
 
 app.post("/api/filter-users/:userId", async (req, res) => {
   try {
@@ -1050,7 +1061,7 @@ app.delete("/api/delete-connection/:id", async (req, res) => {
 app.get("/api/users", async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT id, username, profile_picture, profile_video, email, sexual_orientation, hobbies, floats_my_boat, sex, about_you FROM users ORDER BY username"
+      "SELECT id, username, profile_picture, profile_video, email, sexual_orientation, hobbies, floats_my_boat, sex, about_you, admin_face FROM users ORDER BY username"
     );
     res.json(result.rows);
   } catch (error) {
@@ -1058,6 +1069,7 @@ app.get("/api/users", async (req, res) => {
     res.status(500).send({ message: "An error occurred." });
   }
 });
+
 app.get("/api/connected-users/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -2025,7 +2037,7 @@ app.get("/api/interaction_feed_user_list", async (req, res) => {
     }
 
     const query = `
-      SELECT u.id, u.username, us.title, u.profile_picture 
+      SELECT u.id, u.username, us.title, u.profile_picture, u.admin_face
       FROM submission_members sm 
       JOIN users u ON sm.participating_user_id = u.id 
       JOIN user_submissions us ON sm.submission_id = us.id 
@@ -2047,7 +2059,7 @@ app.get("/api/users/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const result = await pool.query(
-      "SELECT id, username, email, profile_picture, profile_video, sexual_orientation, hobbies, floats_my_boat, sex, about_you, about_my_bot_pal FROM users WHERE id = $1",
+      "SELECT id, username, email, profile_picture, profile_video, sexual_orientation, hobbies, floats_my_boat, sex, about_you, about_my_bot_pal, admin_face FROM users WHERE id = $1",
       [id] // Make sure to select the new 'sex' column here
     );
     res.json(result.rows[0]);
@@ -2058,26 +2070,15 @@ app.get("/api/users/:id", async (req, res) => {
 });
 
 async function system_reply({ userId, content, submissionId, interestedUserIds, user_id }) {
-  console.log("system_reply-userId", userId);
-  console.log("system_reply-content", content);
-  console.log("system_reply-submissionId", submissionId);
-  console.log("system_reply-interestedUserIds", interestedUserIds);
-
   let pretrainText = "";
   const systemInfo = process.env.SYSTEM_SUMMARY;
-  const keywords = [
-    "connection", "diary", "media", "posts", "interaction", "video", "calling",
-    "registry", "login", "Engagements", "Connection Requests", "stage", 
-    "Connections button", "users", "save", "Engagement"
-  ];
-
   // Fetch user details
   const userQuery = "SELECT sexual_orientation, hobbies, floats_my_boat, sex, about_my_bot_pal FROM users WHERE id = $1";
   const userResult = await pool.query(userQuery, [user_id]);
   const userInfo = userResult.rows[0];
 
   const botInfo = userInfo.about_my_bot_pal;
-  pretrainText = `You are chatting with a bot that has the following characteristics: ${botInfo}`;
+  pretrainText = `You are chatting with a bot that has the following characteristics: ${botInfo} and always answers with less than 150 characters`;
 
   // Include user preferences in the pre-training text
   const userPreferences = `
@@ -2087,15 +2088,10 @@ async function system_reply({ userId, content, submissionId, interestedUserIds, 
     Sex: ${userInfo.sex}.
   `;
 
-  // Check if the content is relevant to system information
-  const isRelevant = keywords.some(keyword => content.toLowerCase().includes(keyword.toLowerCase()));
-
-  if (isRelevant) {
-    pretrainText += ` ${systemInfo}`;
-  }
+  pretrainText += ` ${systemInfo}`;
 
   pretrainText += ` ${userPreferences}`;
-
+  console.log("pretrainText:", pretrainText);
   try {
     if (!content) {
       throw new Error("Content is missing for the system reply");
@@ -2119,8 +2115,7 @@ async function system_reply({ userId, content, submissionId, interestedUserIds, 
       "stream": false,
       "stop": null
     });
-
-    console.log("Chat completion response:", chatCompletion);
+    
 
     const systemResponse = chatCompletion.choices[0]?.message?.content || '';
     console.log("System response text:", systemResponse);
@@ -2145,10 +2140,6 @@ async function system_reply({ userId, content, submissionId, interestedUserIds, 
     console.error('Error generating system reply:', error);
   }
 }
-
-
-
-
 
 app.post("/api/users/:submissionId/text-entry", async (req, res) => {
   try {
@@ -2449,5 +2440,5 @@ process.on('unhandledRejection', (reason, promise) => {
 const PORT = process.env.PORT || process.env.PROXYPORT;
 
 server.listen(PORT, () => {
-  console.log(`**9898**Server running on port ${PORT}`);
+  console.log(`**9899**Server running on port ${PORT}`);
 });
