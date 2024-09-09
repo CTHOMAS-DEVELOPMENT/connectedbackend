@@ -53,8 +53,8 @@ const allowedOrigins = [
   'https://main--sage-twilight-26e49d.netlify.app', // Netlify branch URL
   'https://coconut-speckled-asterisk.glitch.me', // Glitch URL
   'https://connectedengager.eu-4.evennode.com',
-  'https://connectedengager.com/',
-  'https://api.connectedengager.com/'
+  'https://connectedengager.com',
+  'https://api.connectedengager.com'
 
 ];
 
@@ -2482,5 +2482,5 @@ process.on('unhandledRejection', (reason, promise) => {
 const PORT = process.env.PORT || process.env.PROXYPORT;
 
 server.listen(PORT, () => {
-  console.log(`**9902**Server running on port ${PORT}`);
+  console.log(`**9903**Server running on port ${PORT}`);
 });
