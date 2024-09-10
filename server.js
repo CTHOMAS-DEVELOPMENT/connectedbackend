@@ -106,7 +106,10 @@ const io = socketIo(server, {
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   },
+  transports: process.env.NODE_ENV === 'development' ? ["polling"] : ["websocket", "polling"], // Only use polling locally, enable websocket in production
+
 });
+//const io = socketIo(server, {
 const transporter = nodemailer.createTransport({
   service: process.env.RESET_EMAIL_PROVIDER, // Example using Gmail
   auth: {
@@ -243,7 +246,9 @@ io.on("connection", (socket) => {
       console.log(`Caller not found for ${to}`);
     }
   });
-
+  socket.on("error", (err) => {
+    console.error(`Socket.io Error: ${err}`);
+  });
   socket.on("disconnect", () => {
     console.log(`User disconnected with socket ID: ${socket.id}`);
     //console.log(`Socket disconnected: ${socket.id}`);
@@ -2482,5 +2487,5 @@ process.on('unhandledRejection', (reason, promise) => {
 const PORT = process.env.PORT || process.env.PROXYPORT;
 
 server.listen(PORT, () => {
-  console.log(`**9903**Server running on port ${PORT}`);
+  console.log(`**9904**Server running on port ${PORT}`);
 });
