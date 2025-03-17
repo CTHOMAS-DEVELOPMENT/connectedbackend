@@ -221,8 +221,13 @@ io.on("connection", (socket) => {
   });
 
   socket.on("callUser", ({ userToCall, signalData, from }) => {
-    console.log(`User(tiny change) ${from} calling user ${userToCall}`);
-    console.log("signalData:", signalData);
+    console.log(`[Backend] Received callUser event`);
+    console.log(` - From userId: ${from}`);
+    console.log(` - To userId: ${userToCall}`);
+    console.log(` - Signal type: ${signalData?.type}`);
+    if (!signalData?.sdp) {
+      console.warn("⚠️ No SDP found in signalData");
+    }
     const recipientSocketId = Object.keys(clientSubmissions).find(
       (socketId) => clientSubmissions[socketId].userId === userToCall
     );
@@ -3027,5 +3032,5 @@ process.on("unhandledRejection", (reason, promise) => {
 const PORT = process.env.PORT || process.env.PROXYPORT;
 
 server.listen(PORT, () => {
-  console.log(`**9917 tiny change**Video Call for Phone App (1) ${PORT}`);
+  console.log(`"**9917*Video Call for Phone App (3) ${PORT}`);
 });
