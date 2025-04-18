@@ -3034,5 +3034,5 @@ process.on("unhandledRejection", (reason, promise) => {
 const PORT = process.env.PORT || process.env.PROXYPORT;
 
 server.listen(PORT, () => {
-  console.log(`"**9917*Video Call for Phone App (3) ${PORT}`);
+  console.log(`"**9925-ping test ${PORT}`);
 });
