@@ -191,7 +191,9 @@ io.on("connection", (socket) => {
     }
     clientSubmissions[socket.id].activeUsers.add(userId);
   });
-
+  socket.on("pingTest", (data) => {
+    console.log("👂 Received pingTest from", data.userId);
+  });
   socket.on("enter screen", ({ userId, submissionId }) => {
     //console.log(`User ${userId} entered screen for submission ${submissionId}`);
     socket.join(`submission-${submissionId}`);
