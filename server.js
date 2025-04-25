@@ -191,9 +191,7 @@ io.on("connection", (socket) => {
     }
     clientSubmissions[socket.id].activeUsers.add(userId);
   });
-  socket.on("pingTest", (data) => {
-    console.log("👂 Received pingTest from", data.userId);
-  });
+
   socket.on("enter screen", ({ userId, submissionId }) => {
     //console.log(`User ${userId} entered screen for submission ${submissionId}`);
     socket.join(`submission-${submissionId}`);
@@ -223,13 +221,8 @@ io.on("connection", (socket) => {
   });
 
   socket.on("callUser", ({ userToCall, signalData, from }) => {
-    console.log(`[Backend] Received callUser event`);
-    console.log(` - From userId: ${from}`);
-    console.log(` - To userId: ${userToCall}`);
-    console.log(` - Signal type: ${signalData?.type}`);
-    if (!signalData?.sdp) {
-      console.warn("⚠️ No SDP found in signalData");
-    }
+    //console.log(`User ${from} calling user ${userToCall}`);
+    //console.log("Current clientSubmissions:", clientSubmissions);
     const recipientSocketId = Object.keys(clientSubmissions).find(
       (socketId) => clientSubmissions[socketId].userId === userToCall
     );
@@ -3034,5 +3027,5 @@ process.on("unhandledRejection", (reason, promise) => {
 const PORT = process.env.PORT || process.env.PROXYPORT;
 
 server.listen(PORT, () => {
-  console.log(`"**9925-ping test ${PORT}`);
+  console.log(`**9916**More intelligent AI ${PORT}`);
 });
