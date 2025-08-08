@@ -411,7 +411,7 @@ function lookupLanguageForIp(ipAddress) {
 
   // If no match is found, log and return a default result
   console.log(`No match found for IP: ${ipAddress}`);
-  return { country: undefined, language: "en" }; // Default to 'en' if no match is found
+  return { country: "UNDEFINED", language: "en" }; // Default to 'en' if no match is found
 }
 
 function ipToBinary(ip, bitSize) {
@@ -3039,5 +3039,5 @@ process.on("unhandledRejection", (reason, promise) => {
 const PORT = process.env.PORT || process.env.PROXYPORT;
 
 server.listen(PORT, () => {
-  console.log(`**9950**Allow app to browser for WebRTC ${PORT}`);
+  console.log(`**9960-validate country`);
 });
