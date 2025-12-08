@@ -2594,12 +2594,14 @@ async function system_reply({
     let systemResponse;
     if (process.env.AI_ENGINE === "1") {
       // Use Groq
+      console.log("📡 Calling Groq with model:", process.env.AI_ENGINE === "1" ? "llama-3-8b-instant" : "OpenAI", "— User ID:", userId);
+
       const chatCompletion = await groq.chat.completions.create({
         messages: [
           { role: "system", content: pretrainText },
           ...conversationHistory,
         ],
-        model: "llama3-8b-8192",
+        model: "llama-3-8b-instant",
         temperature: 1,
         max_tokens: 150,
         top_p: 1,
