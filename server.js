@@ -2534,18 +2534,12 @@ app.get("/api/users/:id", async (req, res) => {
   }
 });
 
-async function system_reply({
-  userId,
-  content,
-  submissionId,
-  interestedUserIds,
-  user_id,
-}) {
+async function system_reply({ userId, content, submissionId, interestedUserIds, user_id }) {
+  const systemAdminId = parseInt(process.env.SYSTEM_ADMIN_ID, 10);
+
   console.log("👉 Entered system_reply()");
   console.log("👉 AI_ENGINE =", process.env.AI_ENGINE);
   console.log("👉 systemAdminId =", systemAdminId, " user_id =", user_id);
-
-  const systemAdminId = parseInt(process.env.SYSTEM_ADMIN_ID, 10); // FIX HERE
 
   let pretrainText = "";
   const systemInfo = process.env.SYSTEM_SUMMARY;
@@ -2598,7 +2592,7 @@ async function system_reply({
     let systemResponse;
     if (process.env.AI_ENGINE === "1") {
       // Use Groq
-      console.log("📡 Calling Groq with model (again):", process.env.AI_ENGINE === "1" ? "llama-3-8b-instant" : "OpenAI", "— User ID:", userId);
+      console.log("📡 Calling Groq with model (again 2):", process.env.AI_ENGINE === "1" ? "llama-3-8b-instant" : "OpenAI", "— User ID:", userId);
       try {
       const chatCompletion = await groq.chat.completions.create({
         messages: [
