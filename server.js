@@ -2541,6 +2541,10 @@ async function system_reply({
   interestedUserIds,
   user_id,
 }) {
+  console.log("👉 Entered system_reply()");
+  console.log("👉 AI_ENGINE =", process.env.AI_ENGINE);
+  console.log("👉 systemAdminId =", systemAdminId, " user_id =", user_id);
+
   const systemAdminId = parseInt(process.env.SYSTEM_ADMIN_ID, 10); // FIX HERE
 
   let pretrainText = "";
