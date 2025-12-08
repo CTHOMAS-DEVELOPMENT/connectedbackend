@@ -2608,6 +2608,7 @@ async function system_reply({
         stream: false,
         stop: null,
       });
+      console.log("✅ Groq response:", JSON.stringify(chatCompletion, null, 2));
       systemResponse = chatCompletion.choices[0]?.message?.content || "";
     } else if (process.env.AI_ENGINE === "2") {
       // Use OpenAI with the new AI/ML engine and custom baseURL
