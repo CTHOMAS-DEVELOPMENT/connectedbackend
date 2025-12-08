@@ -2595,7 +2595,7 @@ async function system_reply({
     if (process.env.AI_ENGINE === "1") {
       // Use Groq
       console.log("📡 Calling Groq with model (again):", process.env.AI_ENGINE === "1" ? "llama-3-8b-instant" : "OpenAI", "— User ID:", userId);
-
+      try {
       const chatCompletion = await groq.chat.completions.create({
         messages: [
           { role: "system", content: pretrainText },
@@ -2608,8 +2608,13 @@ async function system_reply({
         stream: false,
         stop: null,
       });
+      
       console.log("✅ Groq response:", JSON.stringify(chatCompletion, null, 2));
       systemResponse = chatCompletion.choices[0]?.message?.content || "";
+    } catch (err) {
+      console.error("❌ Error during Groq chat completion:", err);
+      systemResponse = "Sorry, there was a problem getting a reply.";
+    }
     } else if (process.env.AI_ENGINE === "2") {
       // Use OpenAI with the new AI/ML engine and custom baseURL
       const openai = new OpenAI({
